@@ -1,10 +1,46 @@
-# Servicios de la aplicación (se añadirán más adelante).
-services: {}
+# Servicios de la aplicación.
+services:
+  postgres:
+    image: postgres:17
+    container_name: casa-repuestos-postgres
+    restart: unless-stopped
 
-# Red interna compartida por los servicios de la aplicación.
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+    networks:
+      - app-network
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  php:
+    container_name: casa-repuestos-php
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./backend:/var/www/html
+    networks:
+      - app-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 networks:
   app-network:
 
-# Volumen persistente para los datos de PostgreSQL.
 volumes:
   postgres-data:
