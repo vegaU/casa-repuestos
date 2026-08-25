@@ -1,0 +1,4 @@
+<?php
+namespace App\Http\Controllers\Api;
+use App\Http\Controllers\Controller; use App\Models\Inventory; use App\Models\StockMovement; use App\Models\Tenant; use Illuminate\Http\Request;
+class InventoryController extends Controller { public function index(Request $r,Tenant $t) { $q=Inventory::query()->with(['product.brand','product.category','branch'])->whereHas('branch',fn($q)=>$q->where('tenant_id',$t->id)); if($r->filled('branch_id')) $q->where('branch_id',$r->integer('branch_id')); return ['data'=>$q->orderBy('product_id')->get()]; } public function movements(Request $r,Tenant $t) { $q=StockMovement::query()->with(['product','branch','creator'])->where('tenant_id',$t->id)->latest('occurred_at'); if($r->filled('branch_id')) $q->where('branch_id',$r->integer('branch_id')); return ['data'=>$q->paginate(30)]; } }

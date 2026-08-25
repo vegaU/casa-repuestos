@@ -1,0 +1,4 @@
+<?php
+namespace App\Http\Controllers\Api;
+use App\Http\Controllers\Controller; use App\Models\Product; use App\Models\Tenant; use Illuminate\Http\Request;
+class ProductController extends Controller { public function index(Tenant $tenant) { return ['data'=>$tenant->products()->with(['brand','category'])->orderBy('name')->get()]; } public function store(Request $r,Tenant $t) { $d=$r->validate(['category_id'=>['nullable','integer'],'brand_id'=>['nullable','integer'],'sku'=>['nullable','string','max:100'],'barcode'=>['nullable','string','max:100'],'name'=>['required','string','max:255'],'description'=>['nullable','string'],'unit'=>['nullable','string','max:20'],'cost_price'=>['nullable','numeric','min:0'],'sale_price'=>['nullable','numeric','min:0'],'reorder_point'=>['nullable','numeric','min:0'],'is_active'=>['boolean']]); $d['tenant_id']=$t->id; return response()->json(['data'=>Product::create($d)],201); } }
