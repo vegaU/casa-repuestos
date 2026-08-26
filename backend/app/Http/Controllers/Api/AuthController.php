@@ -64,6 +64,15 @@ class AuthController extends Controller
         ]);
     }
 
+    public function changePassword(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'password' => ['required', 'string', 'min:10', 'confirmed'],
+        ]);
+        $request->user()->update(['password' => Hash::make($data['password']), 'must_change_password' => false]);
+        return response()->json(['data' => $this->userData($request->user()->fresh())]);
+    }
+
     private function userData(User $user): array
     {
         return [
@@ -71,6 +80,7 @@ class AuthController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'is_super_admin' => $user->is_super_admin,
+            'must_change_password' => $user->must_change_password,
         ];
     }
 }

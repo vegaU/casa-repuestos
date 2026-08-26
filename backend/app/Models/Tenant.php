@@ -17,6 +17,7 @@ class Tenant extends Model
         'tax_id',
         'email',
         'phone',
+        'address',
         'is_active',
     ];
 

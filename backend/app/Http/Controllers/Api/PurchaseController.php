@@ -1,4 +1,34 @@
 <?php
+
 namespace App\Http\Controllers\Api;
-use App\Http\Controllers\Controller; use App\Models\Purchase; use App\Models\Tenant; use App\Services\PurchaseService; use App\Services\TenantDataGuard; use Illuminate\Http\Request; use Illuminate\Support\Facades\DB;
-class PurchaseController extends Controller { public function store(Request $r,Tenant $t,TenantDataGuard $guard) { $d=$r->validate(['branch_id'=>['required','integer'],'supplier_id'=>['nullable','integer'],'supplier_document_number'=>['nullable','string'],'items'=>['required','array','min:1'],'items.*.product_id'=>['required','integer'],'items.*.quantity'=>['required','numeric','gt:0'],'items.*.unit_cost'=>['required','numeric','min:0']]); $guard->purchase($t->id,$d['branch_id'],$d['supplier_id']??null,$d['items']); $p=DB::transaction(function()use($d,$t,$r){$p=Purchase::create(['tenant_id'=>$t->id,'branch_id'=>$d['branch_id'],'supplier_id'=>$d['supplier_id']??null,'supplier_document_number'=>$d['supplier_document_number']??null,'created_by'=>$r->user()->id]);foreach($d['items'] as $i)$p->items()->create($i+['line_total'=>$i['quantity']*$i['unit_cost']]);$total=$p->items()->sum('line_total');$p->update(['subtotal'=>$total,'total'=>$total]);return $p;});return response()->json(['data'=>$p->load('items')],201); } public function receive(Tenant $t,Purchase $purchase,PurchaseService $s){abort_unless($purchase->tenant_id===$t->id,404);return ['data'=>$s->receive($purchase)];} }
+
+use App\Http\Controllers\Controller;
+use App\Models\Purchase;
+use App\Models\Tenant;
+use App\Services\PurchaseService;
+use App\Services\TenantDataGuard;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class PurchaseController extends Controller
+{
+    public function store(Request $request, Tenant $tenant, TenantDataGuard $guard)
+    {
+        $data = $request->validate(['branch_id'=>['required','integer'],'supplier_id'=>['nullable','integer'],'supplier_document_number'=>['nullable','string'],'items'=>['required','array','min:1'],'items.*.product_id'=>['required','integer'],'items.*.quantity'=>['required','numeric','gt:0'],'items.*.unit_cost'=>['required','numeric','min:0']]);
+        $guard->purchase($tenant->id, $data['branch_id'], $data['supplier_id'] ?? null, $data['items']);
+        $purchase = DB::transaction(function () use ($data, $tenant, $request) {
+            $purchase = Purchase::create(['tenant_id'=>$tenant->id,'branch_id'=>$data['branch_id'],'supplier_id'=>$data['supplier_id']??null,'supplier_document_number'=>$data['supplier_document_number']??null,'created_by'=>$request->user()->id]);
+            foreach ($data['items'] as $item) $purchase->items()->create($item + ['line_total'=>$item['quantity']*$item['unit_cost']]);
+            $total = $purchase->items()->sum('line_total');
+            $purchase->update(['subtotal'=>$total,'total'=>$total]);
+            return $purchase;
+        });
+        return response()->json(['data'=>$purchase->load('items')],201);
+    }
+
+    public function receive(Tenant $tenant, Purchase $purchase, PurchaseService $service)
+    {
+        abort_unless($purchase->tenant_id === $tenant->id, 404);
+        return ['data'=>$service->receive($purchase)];
+    }
+}
