@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { isAxiosError } from 'axios'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Building2, Check, Eye, Plus, ShieldCheck, UserPlus } from 'lucide-react'
+import { Eye, Plus, ShieldCheck, UserPlus } from 'lucide-react'
 import { assignAdministrator, createAdminTenant, enterSupport, getAdminTenant, listAdminTenants, removeAdministrator, updateAdminTenant, type AdminTenant } from './api'
 import { useTenant } from '@/features/tenants/TenantProvider'
+import { apiErrorMessage } from '@/lib/http'
 
 type Company = { name:string; tax_id:string; phone:string; email:string; address:string; is_active:boolean }
 type Administrator = { name:string; email:string; password:string }
@@ -21,7 +21,6 @@ export function CompaniesPage() {
   const create=useMutation({mutationFn:()=>createAdminTenant({company,administrator,branch}),onSuccess:()=>{setCreating(false);setStep(0);setCompany(initialCompany);setAdministrator(initialAdmin);setBranch(initialBranch);setCreateError('');void queryClient.invalidateQueries({queryKey:['admin-tenants']})},onError:(error)=>{const message=apiErrorMessage(error);setCreateError(message);window.alert(message)}})
   const support=useMutation({mutationFn:(id:number)=>enterSupport(id),onSuccess:(data)=>{localStorage.setItem('casa-repuestos.support-tenant',String(data.tenant_id));selectTenant(data.tenant_id)}})
   const toggle=useMutation({mutationFn:({id,is_active}:{id:number;is_active:boolean})=>updateAdminTenant(id,{is_active}),onSuccess:()=>{void queryClient.invalidateQueries({queryKey:['admin-tenants']});void queryClient.invalidateQueries({queryKey:['admin-tenant',selected]})}})
-  const edit=useMutation({mutationFn:({id,payload}:{id:number;payload:unknown})=>updateAdminTenant(id,payload),onSuccess:()=>{void queryClient.invalidateQueries({queryKey:['admin-tenants']});void queryClient.invalidateQueries({queryKey:['admin-tenant',selected]})}})
   const assign=useMutation({mutationFn:({id,email}:{id:number;email:string})=>assignAdministrator(id,email),onSuccess:()=>void queryClient.invalidateQueries({queryKey:['admin-tenant',selected]})})
   const remove=useMutation({mutationFn:({tenantId,userId}:{tenantId:number;userId:number})=>removeAdministrator(tenantId,userId),onSuccess:()=>void queryClient.invalidateQueries({queryKey:['admin-tenant',selected]})})
   const steps=['Empresa','Administrador','Sucursal principal','Confirmación']
@@ -36,5 +35,4 @@ function AdministratorForm({value,setValue}:{value:Administrator;setValue:(key:k
 function BranchForm({value,setValue}:{value:Branch;setValue:(key:keyof Branch,value:string|boolean)=>void}){return <div className="grid gap-4 md:grid-cols-2"><Field label="Código" value={value.code} onChange={v=>setValue('code',v)} required/><Field label="Nombre" value={value.name} onChange={v=>setValue('name',v)} required/><Field label="Dirección" value={value.address} onChange={v=>setValue('address',v)}/><Field label="Teléfono" value={value.phone} onChange={v=>setValue('phone',v)}/><CheckBox label="Sucursal activa" checked={value.is_active} onChange={v=>setValue('is_active',v)}/></div>}
 function Summary({company,administrator,branch}:{company:Company;administrator:Administrator;branch:Branch}){return <div className="space-y-3 text-sm"><p><b>Empresa:</b> {company.name} · {company.tax_id||'Sin RUC'}</p><p><b>Administrador:</b> {administrator.name} · {administrator.email}</p><p><b>Sucursal:</b> {branch.code} · {branch.name}</p><p className="text-slate-500">La contraseña temporal no se volverá a mostrar después de crear la empresa.</p></div>}
 function Field({label,value,onChange,type='text',required=false,minLength}:{label:string;value:string;onChange:(value:string)=>void;type?:string;required?:boolean;minLength?:number}){return <label className="text-sm">{label}<input type={type} value={value} required={required} minLength={minLength} onChange={e=>onChange(e.target.value)} className="mt-1 w-full rounded border p-2"/></label>}
-function apiErrorMessage(error:unknown){if(isAxiosError(error)){const data=error.response?.data as {message?:string;errors?:Record<string,string[]>}|undefined;const first=data?.errors&&Object.values(data.errors)[0]?.[0];return first??data?.message??'No se pudo crear la empresa.'}return 'No se pudo crear la empresa.'}
 function CheckBox({label,checked,onChange}:{label:string;checked:boolean;onChange:(value:boolean)=>void}){return <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={checked} onChange={e=>onChange(e.target.checked)}/>{label}</label>}

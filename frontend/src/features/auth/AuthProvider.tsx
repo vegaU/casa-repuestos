@@ -1,3 +1,4 @@
+/* oxlint-disable react(only-export-components, react(set-state-in-effect)) */
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react'
 import { AxiosError } from 'axios'
 import { login as loginRequest, logout as logoutRequest, me } from './api'

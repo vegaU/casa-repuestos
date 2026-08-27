@@ -1,3 +1,4 @@
+/* oxlint-disable react(only-export-components, react(set-state-in-effect)) */
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getTenant, getTenants } from './api'
