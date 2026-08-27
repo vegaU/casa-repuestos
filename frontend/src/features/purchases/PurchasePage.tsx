@@ -1,62 +1,16 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Plus } from 'lucide-react'
-import { http } from '@/lib/http'
+import { Check, Plus, Trash2 } from 'lucide-react'
+import { apiErrorMessage, http } from '@/lib/http'
 import { useTenant } from '@/features/tenants/TenantProvider'
 
-type Product = { id: number; name: string; sku: string | null; cost_price: string | number }
-type Supplier = { id: number; name: string }
-type Paginated<T> = { data: { data: T[] } }
+type Product={id:number;name:string;sku:string|null;cost_price:string|number}; type Supplier={id:number;name:string}; type Line={productId:string;quantity:string;unitCost:string}; type Purchase={id:number;status:string;supplier_document_number?:string|null;total:string|number;created_at:string;supplier?:Supplier|null;items:{id:number;quantity:string|number;unit_cost:string|number;line_total:string|number;product?:Product|null}[]}; type Page<T>={data:{data:T[]}}
+const blank=():Line=>({productId:'',quantity:'1',unitCost:''}); const money=(value:string|number)=>`Gs. ${Number(value).toLocaleString('es-PY')}`
 
-export function PurchasePage() {
-  const { tenant, branch } = useTenant()
-  const queryClient = useQueryClient()
-  const [supplierId, setSupplierId] = useState('')
-  const [productId, setProductId] = useState('')
-  const [quantity, setQuantity] = useState('1')
-  const [unitCost, setUnitCost] = useState('')
-  const [document, setDocument] = useState('')
-  const products = useQuery({ queryKey: ['products', tenant?.id], queryFn: async () => (await http.get<Paginated<Product>>(`/tenants/${tenant!.id}/products`)).data.data.data, enabled: Boolean(tenant) })
-  const suppliers = useQuery({ queryKey: ['suppliers', tenant?.id], queryFn: async () => (await http.get<Paginated<Supplier>>(`/tenants/${tenant!.id}/suppliers`)).data.data.data, enabled: Boolean(tenant) })
-  const mutation = useMutation({
-    mutationFn: async () => {
-      const purchase = await http.post<{ data: { id: number } }>(`/tenants/${tenant!.id}/purchases`, { branch_id: branch!.id, supplier_id: supplierId ? Number(supplierId) : null, supplier_document_number: document || null, items: [{ product_id: Number(productId), quantity: Number(quantity), unit_cost: Number(unitCost) }] })
-      return (await http.post(`/tenants/${tenant!.id}/purchases/${purchase.data.data.id}/receive`)).data
-    },
-    onSuccess: () => {
-      setSupplierId('')
-      setProductId('')
-      setQuantity('1')
-      setUnitCost('')
-      setDocument('')
-      void queryClient.invalidateQueries({ queryKey: ['inventory', tenant?.id, branch?.id] })
-      void queryClient.invalidateQueries({ queryKey: ['dashboard', 'inventory', tenant?.id, branch?.id] })
-    },
-  })
-
-  if (!tenant || !branch) return <p>Seleccioná una empresa y una sucursal.</p>
-
-  function onProductChange(value: string) {
-    setProductId(value)
-    const product = products.data?.find((item) => item.id === Number(value))
-    if (product) setUnitCost(String(product.cost_price ?? ''))
-  }
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    mutation.mutate()
-  }
-
-  return <section className="space-y-6">
-    <div><p className="text-sm text-slate-500">Ingreso de mercadería · {branch.name}</p><h1 className="text-2xl font-bold">Nueva compra</h1></div>
-    <form onSubmit={submit} className="grid gap-4 rounded-lg border bg-white p-5 lg:grid-cols-2">
-      <label className="text-sm">Proveedor<select value={supplierId} onChange={(event) => setSupplierId(event.target.value)} className="mt-1 w-full rounded border p-2"><option value="">Sin proveedor</option>{suppliers.data?.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></label>
-      <label className="text-sm">Nº de documento<input value={document} onChange={(event) => setDocument(event.target.value)} className="mt-1 w-full rounded border p-2" placeholder="Factura o remisión" /></label>
-      <label className="text-sm">Producto<select value={productId} onChange={(event) => onProductChange(event.target.value)} required className="mt-1 w-full rounded border p-2"><option value="">Seleccionar producto</option>{products.data?.map((product) => <option key={product.id} value={product.id}>{product.name}{product.sku ? ` (${product.sku})` : ''}</option>)}</select></label>
-      <div className="grid grid-cols-2 gap-3"><label className="text-sm">Cantidad<input value={quantity} onChange={(event) => setQuantity(event.target.value)} type="number" min="0.001" step="0.001" required className="mt-1 w-full rounded border p-2" /></label><label className="text-sm">Costo unitario<input value={unitCost} onChange={(event) => setUnitCost(event.target.value)} type="number" min="0" required className="mt-1 w-full rounded border p-2" /></label></div>
-      <div className="lg:col-span-2"><button disabled={mutation.isPending} className="flex items-center gap-2 rounded bg-slate-900 px-4 py-2 text-white">{mutation.isPending ? <Plus size={16} className="animate-spin" /> : <Check size={16} />}{mutation.isPending ? 'Registrando…' : 'Registrar y recibir compra'}</button></div>
-    </form>
-    {mutation.isSuccess && <p className="rounded bg-emerald-50 p-3 text-sm text-emerald-800">Compra recibida. El inventario de la sucursal fue actualizado.</p>}
-    {mutation.isError && <p className="rounded bg-red-50 p-3 text-sm text-red-800">No se pudo registrar la compra. Revisá los campos e intentá nuevamente.</p>}
-  </section>
+export function PurchasePage(){
+ const {tenant,branch}=useTenant();const cache=useQueryClient();const [supplierId,setSupplierId]=useState('');const [document,setDocument]=useState('');const [lines,setLines]=useState<Line[]>([blank()]);const [selectedId,setSelectedId]=useState<number|null>(null)
+ const products=useQuery({queryKey:['products',tenant?.id],enabled:Boolean(tenant),queryFn:async()=> (await http.get<Page<Product>>(`/tenants/${tenant!.id}/products`)).data.data.data});const suppliers=useQuery({queryKey:['suppliers',tenant?.id],enabled:Boolean(tenant),queryFn:async()=> (await http.get<Page<Supplier>>(`/tenants/${tenant!.id}/suppliers`)).data.data.data});const purchases=useQuery({queryKey:['purchases',tenant?.id,branch?.id],enabled:Boolean(tenant&&branch),queryFn:async()=> (await http.get<Page<Purchase>>(`/tenants/${tenant!.id}/purchases`,{params:{branch_id:branch!.id}})).data.data.data});const detail=useQuery({queryKey:['purchase',tenant?.id,selectedId],enabled:Boolean(tenant&&selectedId),queryFn:async()=> (await http.get<{data:Purchase}>(`/tenants/${tenant!.id}/purchases/${selectedId}`)).data.data})
+ const total=useMemo(()=>lines.reduce((sum,line)=>sum+Number(line.quantity||0)*Number(line.unitCost||0),0),[lines]);const mutation=useMutation({mutationFn:async()=>{const purchase=await http.post<{data:{id:number}}>(`/tenants/${tenant!.id}/purchases`,{branch_id:branch!.id,supplier_id:supplierId?Number(supplierId):null,supplier_document_number:document||null,items:lines.map(line=>({product_id:Number(line.productId),quantity:Number(line.quantity),unit_cost:Number(line.unitCost)}))});return (await http.post(`/tenants/${tenant!.id}/purchases/${purchase.data.data.id}/receive`)).data},onSuccess:()=>{setSupplierId('');setDocument('');setLines([blank()]);void cache.invalidateQueries({queryKey:['purchases',tenant?.id]});void cache.invalidateQueries({queryKey:['inventory',tenant?.id,branch?.id]})}})
+ if(!tenant||!branch)return <p>Seleccioná una empresa y una sucursal.</p>;function lineChange(index:number,field:keyof Line,value:string){setLines(rows=>rows.map((row,i)=>i===index?{...row,[field]:value}:row))};function productChange(index:number,value:string){const product=products.data?.find(row=>row.id===Number(value));setLines(rows=>rows.map((row,i)=>i===index?{...row,productId:value,unitCost:product?String(product.cost_price??''):row.unitCost}:row))};function submit(event:FormEvent){event.preventDefault();mutation.mutate()}
+ return <section className="space-y-6"><div><p className="text-sm text-slate-500">Ingreso de mercadería · {branch.name}</p><h1 className="text-2xl font-bold">Compras</h1></div><form onSubmit={submit} className="space-y-4 rounded-lg border bg-white p-5"><div className="grid gap-4 lg:grid-cols-2"><label className="text-sm">Proveedor<select value={supplierId} onChange={e=>setSupplierId(e.target.value)} className="mt-1 w-full rounded border p-2"><option value="">Sin proveedor</option>{suppliers.data?.map(supplier=><option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></label><label className="text-sm">Nº de documento<input value={document} onChange={e=>setDocument(e.target.value)} className="mt-1 w-full rounded border p-2" placeholder="Factura o remisión"/></label></div><div className="space-y-2">{lines.map((line,index)=><div key={index} className="grid gap-2 rounded border p-3 md:grid-cols-[1fr_120px_160px_auto]"><select value={line.productId} onChange={e=>productChange(index,e.target.value)} required className="rounded border p-2"><option value="">Seleccionar producto</option>{products.data?.map(product=><option key={product.id} value={product.id}>{product.name}{product.sku?` (${product.sku})`:''}</option>)}</select><input value={line.quantity} onChange={e=>lineChange(index,'quantity',e.target.value)} type="number" min="0.001" step="0.001" required className="rounded border p-2" placeholder="Cantidad"/><input value={line.unitCost} onChange={e=>lineChange(index,'unitCost',e.target.value)} type="number" min="0" required className="rounded border p-2" placeholder="Costo unitario"/><button type="button" onClick={()=>setLines(rows=>rows.filter((_,i)=>i!==index))} disabled={lines.length===1} className="rounded p-2 text-red-700 disabled:text-slate-300" aria-label="Quitar producto"><Trash2 size={18}/></button></div>)}</div><div className="flex flex-wrap items-center justify-between gap-3"><button type="button" onClick={()=>setLines(rows=>[...rows,blank()])} className="flex items-center gap-2 rounded border px-3 py-2"><Plus size={16}/>Agregar producto</button><div className="flex items-center gap-4"><b>Total: {money(total)}</b><button disabled={mutation.isPending} className="flex items-center gap-2 rounded bg-slate-900 px-4 py-2 text-white">{mutation.isPending?<Plus size={16} className="animate-spin"/>:<Check size={16}/>}{mutation.isPending?'Registrando…':'Registrar y recibir'}</button></div></div>{mutation.isError&&<p className="rounded bg-red-50 p-3 text-sm text-red-800">{apiErrorMessage(mutation.error,'No se pudo registrar la compra.')}</p>}{mutation.isSuccess&&<p className="rounded bg-emerald-50 p-3 text-sm text-emerald-800">Compra recibida. El inventario fue actualizado.</p>}</form><div className="grid gap-5 xl:grid-cols-[1.35fr_.9fr]"><div className="overflow-hidden rounded-lg border bg-white"><h2 className="border-b p-4 font-bold">Historial de compras</h2><table className="w-full text-sm"><thead className="bg-slate-50 text-left text-slate-600"><tr><th className="p-3">Documento</th><th className="p-3">Proveedor</th><th className="p-3">Estado</th><th className="p-3 text-right">Total</th></tr></thead><tbody>{purchases.data?.map(purchase=><tr key={purchase.id} onClick={()=>setSelectedId(purchase.id)} className={`cursor-pointer border-t hover:bg-slate-50 ${selectedId===purchase.id?'bg-slate-100':''}`}><td className="p-3">{purchase.supplier_document_number||`Compra #${purchase.id}`}<br/><span className="text-xs text-slate-500">{new Date(purchase.created_at).toLocaleString('es-PY')}</span></td><td className="p-3">{purchase.supplier?.name??'Sin proveedor'}</td><td className="p-3">{purchase.status}</td><td className="p-3 text-right">{money(purchase.total)}</td></tr>)}{!purchases.isLoading&&!purchases.data?.length&&<tr><td colSpan={4} className="p-4 text-slate-500">Aún no hay compras.</td></tr>}</tbody></table></div><aside className="rounded-lg border bg-white p-4">{!selectedId&&<p className="text-sm text-slate-500">Elegí una compra para ver sus productos.</p>}{detail.isLoading&&<p>Cargando detalle…</p>}{detail.data&&<div className="space-y-3"><div><h2 className="font-bold">{detail.data.supplier_document_number||`Compra #${detail.data.id}`}</h2><p className="text-sm text-slate-500">{detail.data.supplier?.name??'Sin proveedor'} · {detail.data.status}</p></div>{detail.data.items.map(item=><div key={item.id} className="flex justify-between border-b pb-2 text-sm"><span>{item.product?.name??'Producto'}<br/><small>{item.quantity} × {money(item.unit_cost)}</small></span><b>{money(item.line_total)}</b></div>)}<p className="flex justify-between font-bold"><span>Total</span><span>{money(detail.data.total)}</span></p></div>}</aside></div></section>
 }
