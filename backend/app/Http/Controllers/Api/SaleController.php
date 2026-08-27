@@ -36,7 +36,9 @@ class SaleController extends Controller
         $data=$request->validate(['branch_id'=>['required','integer'],'customer_id'=>['nullable','integer'],'notes'=>['nullable','string'],'items'=>['required','array','min:1'],'items.*.product_id'=>['required','integer'],'items.*.quantity'=>['required','numeric','gt:0'],'items.*.unit_price'=>['required','numeric','min:0'],'items.*.discount_amount'=>['nullable','numeric','min:0']]);
         $guard->sale($tenant->id,$data['branch_id'],$data['customer_id']??null,$data['items']);
         $sale=DB::transaction(function() use($data,$tenant,$request) {
-            $last = Sale::query()->where('tenant_id',$tenant->id)->lockForUpdate()->max('id') ?? 0;
+            // Lock the tenant row first; PostgreSQL does not support locking MAX().
+            Tenant::query()->lockForUpdate()->findOrFail($tenant->id);
+            $last = Sale::query()->where('tenant_id',$tenant->id)->max('id') ?? 0;
             $sale=Sale::create(['tenant_id'=>$tenant->id,'branch_id'=>$data['branch_id'],'customer_id'=>$data['customer_id']??null,'sale_number'=>sprintf('V-%06d',$last + 1),'notes'=>$data['notes']??null,'created_by'=>$request->user()->id]);
             foreach($data['items'] as $item) { $discount=(float)($item['discount_amount']??0); $sale->items()->create($item+['discount_amount'=>$discount,'line_total'=>($item['quantity']*$item['unit_price'])-$discount]); }
             $subtotal=$sale->items()->sum(DB::raw('quantity * unit_price'));

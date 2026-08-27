@@ -16,7 +16,9 @@ class SaleCheckoutService
     {
         return DB::transaction(function () use ($tenant, $user, $data) {
             Tenant::query()->lockForUpdate()->findOrFail($tenant->id);
-            $next = (Sale::query()->where('tenant_id', $tenant->id)->lockForUpdate()->count()) + 1;
+            // The tenant row is already locked above, serializing sale numbers per tenant.
+            // PostgreSQL does not allow FOR UPDATE on aggregate queries.
+            $next = Sale::query()->where('tenant_id', $tenant->id)->count() + 1;
             $sale = Sale::create(['tenant_id'=>$tenant->id,'branch_id'=>$data['branch_id'],'customer_id'=>$data['customer_id']??null,'sale_number'=>sprintf('V-%06d',$next),'notes'=>$data['notes']??null,'created_by'=>$user->id]);
             $subtotal = '0.00';
             $discount = '0.00';
