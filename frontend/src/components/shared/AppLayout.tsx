@@ -1,10 +1,10 @@
-import { Boxes, ChevronLeft, CircleDollarSign, LayoutDashboard, LogOut, Menu, Package, Settings, ShoppingCart, Tags, UsersRound, Warehouse } from 'lucide-react'
+import { Boxes, ChevronLeft, CircleDollarSign, History, LayoutDashboard, LogOut, Menu, Package, Settings, ShoppingCart, Tags, UsersRound, Warehouse } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useTenant } from '@/features/tenants/TenantProvider'
 
-const links=[['/', 'Inicio', LayoutDashboard],['/productos','Productos',Package],['/compras','Compras',ShoppingCart],['/ventas','Ventas',CircleDollarSign],['/inventario','Inventario',Warehouse],['/clientes','Clientes',UsersRound],['/proveedores','Proveedores',UsersRound],['/categorias','Categorías',Tags],['/marcas','Marcas',Tags]] as const
+const links=[['/', 'Inicio', LayoutDashboard],['/productos','Productos',Package],['/compras','Compras',ShoppingCart],['/ventas','Ventas',CircleDollarSign],['/ventas/historial','Historial de ventas',History],['/inventario','Inventario',Warehouse],['/clientes','Clientes',UsersRound],['/proveedores','Proveedores',UsersRound],['/categorias','Categorías',Tags],['/marcas','Marcas',Tags]] as const
 
 export function AppLayout(){
   const [collapsed,setCollapsed]=useState(false)
