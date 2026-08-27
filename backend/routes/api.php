@@ -47,7 +47,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/purchases', [PurchaseController::class, 'store'])->middleware('tenant.permission:purchases.manage');
         Route::post('/purchases/{purchase}/receive', [PurchaseController::class, 'receive'])->middleware('tenant.permission:purchases.manage');
         Route::post('/purchases/{purchase}/cancel', [CancellationController::class, 'purchase'])->middleware('tenant.permission:purchases.manage');
+        Route::get('/sales', [SaleController::class, 'index'])->middleware('tenant.permission:sales.view');
         Route::post('/sales', [SaleController::class, 'store'])->middleware('tenant.permission:sales.manage');
+        Route::get('/sales/{sale}', [SaleController::class, 'show'])->middleware('tenant.permission:sales.view');
         Route::post('/sales/{sale}/complete', [SaleController::class, 'complete'])->middleware('tenant.permission:sales.manage');
         Route::post('/sales/{sale}/cancel', [CancellationController::class, 'sale'])->middleware('tenant.permission:sales.manage');
         Route::post('/sales/{sale}/payments', [PaymentController::class, 'store'])->middleware('tenant.permission:payments.manage');

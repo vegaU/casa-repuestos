@@ -1,59 +1,24 @@
-import { type FormEvent, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check } from 'lucide-react'
+import { Minus, Plus, Trash2 } from 'lucide-react'
 import { http } from '@/lib/http'
 import { useTenant } from '@/features/tenants/TenantProvider'
 
-type Product = { id: number; name: string; sku: string | null; sale_price: string | number }
-type Customer = { id: number; name: string }
-type Paginated<T> = { data: { data: T[] } }
+type Product={id:number;name:string;sku:string|null;sale_price:string|number}
+type Customer={id:number;name:string}
+type Page<T>={data:{data:T[]}}
+type CartItem=Product&{quantity:number;unit_price:number;discount_amount:number}
 
-export function SalePage() {
-  const { tenant, branch } = useTenant()
-  const queryClient = useQueryClient()
-  const [customerId, setCustomerId] = useState('')
-  const [productId, setProductId] = useState('')
-  const [quantity, setQuantity] = useState('1')
-  const [unitPrice, setUnitPrice] = useState('')
-  const products = useQuery({ queryKey: ['products', tenant?.id], queryFn: async () => (await http.get<Paginated<Product>>(`/tenants/${tenant!.id}/products`)).data.data.data, enabled: Boolean(tenant) })
-  const customers = useQuery({ queryKey: ['customers', tenant?.id], queryFn: async () => (await http.get<Paginated<Customer>>(`/tenants/${tenant!.id}/customers`)).data.data.data, enabled: Boolean(tenant) })
-  const mutation = useMutation({
-    mutationFn: async () => {
-      const sale = await http.post<{ data: { id: number } }>(`/tenants/${tenant!.id}/sales`, { branch_id: branch!.id, customer_id: customerId ? Number(customerId) : null, items: [{ product_id: Number(productId), quantity: Number(quantity), unit_price: Number(unitPrice) }] })
-      return (await http.post(`/tenants/${tenant!.id}/sales/${sale.data.data.id}/complete`)).data
-    },
-    onSuccess: () => {
-      setCustomerId('')
-      setProductId('')
-      setQuantity('1')
-      setUnitPrice('')
-      void queryClient.invalidateQueries({ queryKey: ['inventory', tenant?.id, branch?.id] })
-      void queryClient.invalidateQueries({ queryKey: ['dashboard', 'inventory', tenant?.id, branch?.id] })
-    },
-  })
-
-  if (!tenant || !branch) return <p>Seleccioná una empresa y una sucursal.</p>
-
-  function changeProduct(value: string) {
-    setProductId(value)
-    const product = products.data?.find((item) => item.id === Number(value))
-    if (product) setUnitPrice(String(product.sale_price ?? ''))
-  }
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    mutation.mutate()
-  }
-
-  return <section className="space-y-6">
-    <div><p className="text-sm text-slate-500">Salida de mercadería · {branch.name}</p><h1 className="text-2xl font-bold">Nueva venta</h1></div>
-    <form onSubmit={submit} className="grid gap-4 rounded-lg border bg-white p-5 lg:grid-cols-2">
-      <label className="text-sm">Cliente<select value={customerId} onChange={(event) => setCustomerId(event.target.value)} className="mt-1 w-full rounded border p-2"><option value="">Consumidor final</option>{customers.data?.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
-      <label className="text-sm">Producto<select value={productId} onChange={(event) => changeProduct(event.target.value)} required className="mt-1 w-full rounded border p-2"><option value="">Seleccionar producto</option>{products.data?.map((product) => <option key={product.id} value={product.id}>{product.name}{product.sku ? ` (${product.sku})` : ''}</option>)}</select></label>
-      <div className="grid grid-cols-2 gap-3"><label className="text-sm">Cantidad<input value={quantity} onChange={(event) => setQuantity(event.target.value)} type="number" min="0.001" step="0.001" required className="mt-1 w-full rounded border p-2" /></label><label className="text-sm">Precio unitario<input value={unitPrice} onChange={(event) => setUnitPrice(event.target.value)} type="number" min="0" required className="mt-1 w-full rounded border p-2" /></label></div>
-      <div className="lg:col-span-2"><button disabled={mutation.isPending} className="flex items-center gap-2 rounded bg-slate-900 px-4 py-2 text-white"><Check size={16} />{mutation.isPending ? 'Registrando…' : 'Registrar y completar venta'}</button></div>
-    </form>
-    {mutation.isSuccess && <p className="rounded bg-emerald-50 p-3 text-sm text-emerald-800">Venta completada. El inventario de la sucursal fue actualizado.</p>}
-    {mutation.isError && <p className="rounded bg-red-50 p-3 text-sm text-red-800">No se pudo completar la venta. Verificá que exista stock disponible y revisá los datos.</p>}
-  </section>
+export function SalePage(){
+  const {tenant,branch}=useTenant(); const client=useQueryClient()
+  const [cart,setCart]=useState<CartItem[]>([]); const [customerId,setCustomerId]=useState(''); const [paymentAmount,setPaymentAmount]=useState(''); const [paymentMethod,setPaymentMethod]=useState('cash'); const [search,setSearch]=useState('')
+  const products=useQuery({queryKey:['products',tenant?.id,search],queryFn:async()=> (await http.get<Page<Product>>('/tenants/'+tenant!.id+'/products',{params:{search}})).data.data.data,enabled:Boolean(tenant)})
+  const customers=useQuery({queryKey:['customers',tenant?.id],queryFn:async()=> (await http.get<Page<Customer>>('/tenants/'+tenant!.id+'/customers')).data.data.data,enabled:Boolean(tenant)})
+  const totals=useMemo(()=>cart.reduce((acc,item)=>{const gross=item.quantity*item.unit_price;acc.subtotal+=gross;acc.discount+=item.discount_amount;return acc},{subtotal:0,discount:0}),[cart])
+  const total=totals.subtotal-totals.discount
+  const complete=useMutation({mutationFn:async()=>{const sale=await http.post<{data:{id:number}}>('/tenants/'+tenant!.id+'/sales',{branch_id:branch!.id,customer_id:customerId?Number(customerId):null,items:cart.map(item=>({product_id:item.id,quantity:item.quantity,unit_price:item.unit_price,discount_amount:item.discount_amount}))});await http.post('/tenants/'+tenant!.id+'/sales/'+sale.data.data.id+'/complete');if(Number(paymentAmount)>0)await http.post('/tenants/'+tenant!.id+'/sales/'+sale.data.data.id+'/payments',{amount:Number(paymentAmount),method:paymentMethod});return sale.data.data},onSuccess:()=>{setCart([]);setCustomerId('');setPaymentAmount('');void client.invalidateQueries({queryKey:['inventory',tenant?.id,branch?.id]});void client.invalidateQueries({queryKey:['dashboard','inventory',tenant?.id,branch?.id]})}})
+  if(!tenant||!branch)return <p>Seleccioná una empresa y una sucursal.</p>
+  function add(product:Product){setCart(current=>{const found=current.find(item=>item.id===product.id);return found?current.map(item=>item.id===product.id?{...item,quantity:item.quantity+1}:item):[...current,{...product,quantity:1,unit_price:Number(product.sale_price),discount_amount:0}]})}
+  function update(id:number,patch:Partial<CartItem>){setCart(current=>current.map(item=>item.id===id?{...item,...patch}:item))}
+  return <section className="space-y-5"><div><p className="text-sm text-slate-500">Sucursal: {branch.name}</p><h1 className="text-2xl font-bold">Nueva venta</h1></div><div className="grid gap-5 lg:grid-cols-[1fr_1.2fr]"><div className="space-y-3 rounded-lg border bg-white p-4"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar nombre, SKU o código de barras" className="w-full rounded border p-2"/>{products.data?.map(product=><button key={product.id} onClick={()=>add(product)} className="flex w-full justify-between rounded border p-3 text-left hover:bg-slate-50"><span>{product.name}<small className="ml-2 text-slate-500">{product.sku}</small></span><b>{Number(product.sale_price).toLocaleString('es-PY')}</b></button>)}</div><div className="space-y-4 rounded-lg border bg-white p-4"><label className="block text-sm">Cliente<select value={customerId} onChange={e=>setCustomerId(e.target.value)} className="mt-1 w-full rounded border p-2"><option value="">Consumidor final</option>{customers.data?.map(customer=><option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label><div>{cart.length===0?<p className="py-8 text-center text-slate-500">Agregá productos al carrito.</p>:cart.map(item=><div key={item.id} className="grid grid-cols-[1fr_auto] gap-3 border-b py-3"><div><strong>{item.name}</strong><div className="mt-2 flex flex-wrap gap-2"><button onClick={()=>update(item.id,{quantity:Math.max(.001,item.quantity-1)})}><Minus size={16}/></button><input value={item.quantity} onChange={e=>update(item.id,{quantity:Number(e.target.value)})} type="number" min=".001" step=".001" className="w-16 rounded border p-1"/><button onClick={()=>update(item.id,{quantity:item.quantity+1})}><Plus size={16}/></button><input value={item.unit_price} onChange={e=>update(item.id,{unit_price:Number(e.target.value)})} type="number" min="0" className="w-24 rounded border p-1"/><input value={item.discount_amount} onChange={e=>update(item.id,{discount_amount:Number(e.target.value)})} type="number" min="0" placeholder="Descuento" className="w-24 rounded border p-1"/></div></div><div className="flex flex-col items-end gap-2"><b>{(item.quantity*item.unit_price-item.discount_amount).toLocaleString('es-PY')}</b><button onClick={()=>setCart(current=>current.filter(row=>row.id!==item.id))} className="text-red-700"><Trash2 size={16}/></button></div></div>)}</div><div className="border-t pt-3 text-right"><p>Subtotal: {totals.subtotal.toLocaleString('es-PY')}</p><p>Descuento: {totals.discount.toLocaleString('es-PY')}</p><p className="text-xl font-bold">Total: {total.toLocaleString('es-PY')}</p></div><div className="grid grid-cols-2 gap-3"><select value={paymentMethod} onChange={e=>setPaymentMethod(e.target.value)} className="rounded border p-2"><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option></select><input value={paymentAmount} onChange={e=>setPaymentAmount(e.target.value)} type="number" min="0" max={total} placeholder="Pago inicial" className="rounded border p-2"/></div><button disabled={!cart.length||complete.isPending} onClick={()=>{if(window.confirm('¿Confirmar y completar esta venta?'))complete.mutate()}} className="w-full rounded bg-slate-900 py-3 text-white">{complete.isPending?'Procesando…':'Confirmar venta'}</button>{complete.isError&&<p className="text-sm text-red-600">No se pudo completar la venta. Verificá el stock y el pago.</p>}{complete.isSuccess&&<p className="text-sm text-emerald-700">Venta registrada correctamente.</p>}</div></div></section>
 }

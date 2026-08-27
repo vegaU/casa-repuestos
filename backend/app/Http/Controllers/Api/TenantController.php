@@ -14,7 +14,10 @@ class TenantController extends Controller
         $user = $request->user();
         $tenants = $user->is_super_admin
             ? Tenant::query()->get()
-            : $user->tenants()->where('is_active', true)->get();
+            : $user->tenants()
+                ->where('tenants.is_active', true)
+                ->wherePivot('is_active', true)
+                ->get();
 
         return response()->json(['data' => $tenants]);
     }
