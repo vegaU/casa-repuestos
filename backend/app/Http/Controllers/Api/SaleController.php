@@ -8,11 +8,21 @@ use App\Models\Tenant;
 use App\Services\SaleService;
 use App\Services\TenantDataGuard;
 use App\Services\AuditService;
+use App\Services\SaleCheckoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class SaleController extends Controller
 {
+    public function checkout(Request $request, Tenant $tenant, TenantDataGuard $guard, SaleCheckoutService $checkout, AuditService $audit)
+    {
+        $data=$request->validate(['branch_id'=>['required','integer'],'customer_id'=>['nullable','integer'],'notes'=>['nullable','string'],'items'=>['required','array','min:1'],'items.*.product_id'=>['required','integer'],'items.*.quantity'=>['required','numeric','gt:0'],'items.*.unit_price'=>['required','numeric','min:0'],'items.*.discount_amount'=>['nullable','numeric','min:0'],'payment'=>['nullable','array'],'payment.method'=>['required_with:payment','in:cash,card,transfer'],'payment.amount'=>['nullable','numeric','gt:0'],'payment.tendered_amount'=>['nullable','numeric','gt:0'],'payment.reference'=>['nullable','string','max:255'],'payment.settle_full'=>['nullable','boolean']]);
+        $guard->sale($tenant->id,$data['branch_id'],$data['customer_id']??null,$data['items']);
+        $result=$checkout->checkout($tenant,$request->user(),$data);
+        $audit->record($request,$tenant->id,'sale.checkout',$result['sale'],[],['total'=>$result['total'],'paid_amount'=>$result['paid_amount'],'change_amount'=>$result['change_amount']]);
+        return response()->json(['data'=>$result],201);
+    }
+
     public function index(Request $request, Tenant $tenant)
     {
         $sales = $tenant->sales()->with(['customer','branch'])->latest();

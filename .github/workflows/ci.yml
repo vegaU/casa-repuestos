@@ -36,7 +36,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: pgsql, pdo_pgsql, mbstring, intl, zip
+          extensions: pgsql, pdo_pgsql, mbstring, intl, zip, bcmath
       - run: composer install --no-interaction --prefer-dist --no-progress
       - run: php artisan test
 

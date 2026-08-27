@@ -44,10 +44,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/products', [ProductController::class, 'store'])->middleware('tenant.permission:catalog.manage');
         Route::get('/products/{product}', [ProductController::class, 'show'])->middleware('tenant.permission:catalog.view');
         Route::patch('/products/{product}', [ProductController::class, 'update'])->middleware('tenant.permission:catalog.manage');
+        Route::get('/purchases', [PurchaseController::class, 'index'])->middleware('tenant.permission:purchases.view');
         Route::post('/purchases', [PurchaseController::class, 'store'])->middleware('tenant.permission:purchases.manage');
+        Route::get('/purchases/{purchase}', [PurchaseController::class, 'show'])->middleware('tenant.permission:purchases.view');
         Route::post('/purchases/{purchase}/receive', [PurchaseController::class, 'receive'])->middleware('tenant.permission:purchases.manage');
         Route::post('/purchases/{purchase}/cancel', [CancellationController::class, 'purchase'])->middleware('tenant.permission:purchases.manage');
         Route::get('/sales', [SaleController::class, 'index'])->middleware('tenant.permission:sales.view');
+        Route::post('/sales/checkout', [SaleController::class, 'checkout'])->middleware('tenant.permission:sales.manage');
         Route::post('/sales', [SaleController::class, 'store'])->middleware('tenant.permission:sales.manage');
         Route::get('/sales/{sale}', [SaleController::class, 'show'])->middleware('tenant.permission:sales.view');
         Route::post('/sales/{sale}/complete', [SaleController::class, 'complete'])->middleware('tenant.permission:sales.manage');
