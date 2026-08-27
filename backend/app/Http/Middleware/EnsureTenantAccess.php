@@ -19,6 +19,10 @@ class EnsureTenantAccess
 
         $user = $request->user();
 
+        if (! $tenant->is_active && ! $user->is_super_admin) {
+            abort(403, 'La empresa se encuentra inactiva.');
+        }
+
         if (! $user->is_super_admin && ! $user->tenants()
             ->whereKey($tenant->id)
             ->wherePivot('is_active', true)

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Tenant;
+use App\Services\TenantDataGuard;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
@@ -21,9 +22,10 @@ class ProductController extends Controller
         return ['data' => $products->paginate(20)];
     }
 
-    public function store(Request $request, Tenant $tenant)
+    public function store(Request $request, Tenant $tenant, TenantDataGuard $guard)
     {
         $data = $request->validate($this->rules());
+        $guard->product($tenant->id, $data['category_id'] ?? null, $data['brand_id'] ?? null);
         $data['tenant_id'] = $tenant->id;
         return response()->json(['data' => Product::create($data)], 201);
     }
@@ -34,10 +36,12 @@ class ProductController extends Controller
         return ['data' => $product->load(['brand','category','inventories.branch'])];
     }
 
-    public function update(Request $request, Tenant $tenant, Product $product)
+    public function update(Request $request, Tenant $tenant, Product $product, TenantDataGuard $guard)
     {
         abort_unless($product->tenant_id === $tenant->id, 404);
-        $product->update($request->validate(array_map(fn ($rules) => array_merge(['sometimes'], $rules), $this->rules())));
+        $data = $request->validate(array_map(fn ($rules) => array_merge(['sometimes'], $rules), $this->rules()));
+        $guard->product($tenant->id, $data['category_id'] ?? $product->category_id, $data['brand_id'] ?? $product->brand_id);
+        $product->update($data);
         return ['data' => $product];
     }
 }
