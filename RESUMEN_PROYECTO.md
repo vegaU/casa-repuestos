@@ -1,75 +1,39 @@
 # Resumen del proyecto Casa Repuestos
 
-## Estructura
+Casa Repuestos es una plataforma full stack y multitenant para administrar empresas de repuestos, sucursales, inventario, compras y ventas.
 
-```text
-casa-repuestos/
-├── backend/          Laravel 12 + API
-├── frontend/         React + Vite + pnpm
-├── docker/nginx/     Configuración del servidor web
-├── docker/php/       Imagen PHP 8.3
-└── docker-compose.yml
-```
+La documentación principal y las instrucciones actualizadas se encuentran en el [README](README.md).
 
-## Infraestructura
+## Estado actual
 
-Docker ejecuta PostgreSQL 17, PHP 8.3-FPM y Nginx.
+El proyecto ya incluye:
 
-- Aplicación Laravel: http://localhost:8080
-- PostgreSQL externo: `127.0.0.1:5433`
-- Base: `casa_repuestos`
-- Usuario: `casa_repuestos`
+- Administración global de empresas.
+- Sucursales, usuarios y permisos por rol.
+- Autenticación mediante Laravel Sanctum.
+- Catálogos de categorías, marcas, productos, proveedores y clientes.
+- Inventario y movimientos de stock por sucursal.
+- Compras con múltiples productos y actualización de existencias.
+- Checkout transaccional de ventas.
+- Descuentos, pagos, efectivo recibido y cálculo de vuelto.
+- Cancelación de compras y ventas.
+- Auditoría de operaciones críticas.
+- Pruebas de aislamiento multitenant y checkout.
+- Integración continua para backend y frontend.
 
-Para iniciar los servicios:
+## Tecnologías
 
-```powershell
-docker compose up -d --build
-```
+- Laravel 12 y PHP 8.3.
+- React 19 y TypeScript.
+- PostgreSQL 17.
+- Docker, PHP-FPM y Nginx.
+- TanStack Query, React Hook Form y Zod.
+- PHPUnit, Oxlint y GitHub Actions.
 
-## Backend
+## Pendientes principales
 
-El backend usa Laravel 12 y Sanctum para autenticación por token.
-
-- Superusuario: `rango@admin.com`
-- Arquitectura multitenant: empresas, sucursales y roles por empresa.
-- Empresa inicial: Casa Dominguez, RUC `123456`.
-- Catálogos: categorías, marcas, proveedores y productos.
-- Inventario por sucursal y movimientos de stock.
-- Compras: al recibirlas, aumentan el stock.
-- Ventas: al completarlas, descuentan el stock y evitan stock negativo.
-- Pagos parciales y saldo pendiente en ventas.
-
-Rutas principales de API:
-
-```text
-POST /api/login
-POST /api/logout
-GET  /api/me
-GET  /api/tenants
-GET  /api/tenants/{tenant}/inventory
-GET  /api/tenants/{tenant}/stock-movements
-```
-
-## Frontend
-
-El frontend está creado con React, Vite y pnpm.
-
-```powershell
-cd frontend
-corepack pnpm dev
-```
-
-Vite normalmente se abre en http://localhost:5173.
-
-## Pendientes
-
-- Completar CRUD de clientes, proveedores y productos.
-- Añadir pruebas automatizadas y documentación detallada de API.
-- Preparar el módulo de facturación electrónica e-Kuatia.
-- Crear la interfaz del panel React y conectarla a la API.
-
-## GitHub
-
-Repositorio: https://github.com/vegaU/casa-repuestos
-
-Commit inicial: `4b4113d feat: inicializar backend multitenant e inventario`
+- Ampliar la cobertura automatizada.
+- Incorporar documentación OpenAPI.
+- Preparar despliegue y datos de demostración.
+- Agregar facturación y futura integración con e-Kuatia.
+- Publicar capturas y demostración en línea.
